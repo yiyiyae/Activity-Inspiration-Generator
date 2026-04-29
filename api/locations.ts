@@ -10,7 +10,8 @@ export default async function handler(_req: any, res: any) {
     res.status(200).json(rows);
   } catch (error) {
     console.error("Failed to query Notion database", error);
-    res.status(500).json({ message: "Failed to query Notion database" });
+    const reason = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ message: "Failed to query Notion database", reason });
   }
 }
 

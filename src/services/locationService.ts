@@ -67,7 +67,18 @@ export async function getLocations(): Promise<LocationResult> {
     const endpoint = getEndpoint();
     const response = await fetch(endpoint);
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+      let detail = `Request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { message?: string; reason?: string };
+        if (payload?.reason) {
+          detail = payload.reason;
+        } else if (payload?.message) {
+          detail = payload.message;
+        }
+      } catch {
+        // ignore response parse errors
+      }
+      throw new Error(detail);
     }
 
     const data = (await response.json()) as LocationItem[];
