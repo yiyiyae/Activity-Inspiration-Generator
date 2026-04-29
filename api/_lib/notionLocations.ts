@@ -1,4 +1,5 @@
-﻿// Notion 数据映射库：负责把数据库字段转换为前端 LocationItem 结构。
+﻿declare const process: any;
+// Notion 数据映射库：负责把数据库字段转换为前端 LocationItem 结构。
 // 如果你改了 Notion 字段名，优先修改本文件的字段映射与归一化逻辑。
 import { Client } from "@notionhq/client";
 
@@ -200,3 +201,5 @@ async function queryRowsByDataSource(notion: Client, dataSourceId: string, pageS
     page_size: pageSize,
   });
 }
+
+

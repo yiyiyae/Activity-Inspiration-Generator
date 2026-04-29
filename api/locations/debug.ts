@@ -1,4 +1,5 @@
-﻿// 调试接口（安全版）：仅用于排查 Notion 字段结构映射问题。
+﻿declare const process: any;
+// 调试接口（安全版）：仅用于排查 Notion 字段结构映射问题。
 // 生产默认关闭，可通过 ENABLE_DEBUG_API 和 DEBUG_API_KEY 控制开放与鉴权。
 import { queryRawPages } from "../_lib/notionLocations";
 
@@ -59,4 +60,5 @@ export default async function handler(req: any, res: any) {
     res.status(500).json({ message: "Debug API failed" });
   }
 }
+
 

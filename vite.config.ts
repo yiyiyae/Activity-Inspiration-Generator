@@ -1,4 +1,5 @@
-﻿import "dotenv/config";
+﻿declare const process: any;
+import "dotenv/config";
 // Vite 配置：开发期注入本地 API 中间件，解决 /api/*.ts 在 Vite 下不自动执行的问题。
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -10,7 +11,7 @@ function devApiPlugin(): Plugin {
     name: "dev-api-middleware",
     apply: "serve",
     configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split("?")[0] ?? "";
 
         if (url === "/__api/ping") {
@@ -189,3 +190,6 @@ function extractNotionTitle(item: any): string {
 export default defineConfig({
   plugins: [react(), devApiPlugin()],
 });
+
+
+

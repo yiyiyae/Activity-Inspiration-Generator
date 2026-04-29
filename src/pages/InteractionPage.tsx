@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dice5, Filter } from "lucide-react";
 import { type SelectedTimeLabel, useTheme } from "../context/ThemeContext";
 import { type LocationItem } from "../data/mockData";
-import { getLocations } from "../services/locationService";
+import { getCachedLocations, getLocations } from "../services/locationService";
 
 type WeatherOption = "Sunny" | "Cloudy" | "Rainy";
 type TimeOption = "Morning" | "Afternoon" | "Evening";
@@ -28,7 +28,15 @@ function InteractionPage() {
     let mounted = true;
 
     async function loadLocations() {
-      setLoading(true);
+      const cached = getCachedLocations();
+      if (cached && mounted) {
+        setLocations(cached.data);
+        setDataSource(cached.source);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
       const result = await getLocations();
       if (!mounted) {
         return;

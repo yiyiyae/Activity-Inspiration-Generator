@@ -1,4 +1,5 @@
-﻿// 正式数据接口：给前端页面使用，返回标准 LocationItem[]。
+﻿declare const process: any;
+// 正式数据接口：给前端页面使用，返回标准 LocationItem[]。
 // 注意：此接口不会返回任何敏感环境变量。
 import { queryMappedLocations } from "./_lib/notionLocations";
 
@@ -12,3 +13,4 @@ export default async function handler(_req: any, res: any) {
     res.status(500).json({ message: "Failed to query Notion database" });
   }
 }
+
