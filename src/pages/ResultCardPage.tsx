@@ -33,6 +33,22 @@ function ResultCardPage() {
     return resultLocation.title;
   }, [resultLocation]);
 
+  const normalizedPHookText = useMemo(() => {
+    const raw = resultLocation?.p_mode.hook_text?.trim() ?? "";
+    if (raw) {
+      return raw.replace(/\s+/g, " ");
+    }
+    return `目的地已锁定：${cardTitle}`;
+  }, [cardTitle, resultLocation]);
+
+  const normalizedPActionText = useMemo(() => {
+    const raw = resultLocation?.p_mode.action_prompt?.trim() ?? "";
+    if (raw) {
+      return raw.replace(/\s+/g, " ");
+    }
+    return "保持随机心态，跟着第一眼的直觉出发。";
+  }, [resultLocation]);
+
   const shareImageSrc = useMemo(() => {
     if (!resultLocation || !mode) {
       return "";
@@ -101,19 +117,34 @@ function ResultCardPage() {
           <div className="space-y-5 p-5 pt-8">
             {mode === "P" ? (
               <article className="space-y-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] opacity-70">本次处方地点</p>
+                  <h2 className="mt-1 font-heading text-3xl leading-tight">{cardTitle}</h2>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {resultLocation.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-pill border border-skin-border bg-skin-bg px-3 py-1 text-xs font-semibold"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="relative h-56 overflow-hidden rounded-card border border-skin-border">
                   <img src={resultLocation.p_mode.image} alt={cardTitle} className="h-full w-full object-cover" />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent" />
                 </div>
 
-                <h2 className="font-heading text-3xl leading-tight">{resultLocation.p_mode.hook_text}</h2>
+                <p className="font-heading text-3xl leading-tight">{normalizedPHookText}</p>
 
                 <div className="rounded-card border-2 border-skin-accent bg-skin-bg p-4 shadow-theme">
                   <p className="mb-2 inline-flex items-center gap-2 text-xs uppercase tracking-[0.14em] opacity-80">
                     <Sparkles size={14} />
                     神秘行动指令
                   </p>
-                  <p className="text-base font-semibold leading-relaxed">{resultLocation.p_mode.action_prompt}</p>
+                  <p className="text-base font-semibold leading-relaxed">{normalizedPActionText}</p>
                 </div>
               </article>
             ) : (
@@ -217,12 +248,13 @@ function ResultCardPage() {
               <div className="mx-auto mt-3 w-[92%] rounded-[18px] border border-skin-border bg-white p-3 pb-8 text-zinc-900 shadow-[0_10px_35px_rgba(0,0,0,0.22)]">
                 {mode === "P" ? (
                   <div className="space-y-2">
+                    <p className="text-sm font-semibold">{cardTitle}</p>
                     <div className="h-36 overflow-hidden rounded-[12px] border border-zinc-200">
                       <img src={resultLocation.p_mode.image} alt={cardTitle} className="h-full w-full object-cover" />
                     </div>
-                    <h3 className="text-base font-semibold leading-tight">{resultLocation.p_mode.hook_text}</h3>
+                    <h3 className="text-base font-semibold leading-tight">{normalizedPHookText}</h3>
                     <p className="rounded-[10px] border border-zinc-300 bg-zinc-100 p-2 text-xs leading-relaxed">
-                      {resultLocation.p_mode.action_prompt}
+                      {normalizedPActionText}
                     </p>
                   </div>
                 ) : (
