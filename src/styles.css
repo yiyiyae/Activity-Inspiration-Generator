@@ -1,0 +1,112 @@
+﻿/* 全局样式与主题变量：定义 neutral/NT/NF/SJ/SP 五套视觉 token。 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-heading: "Source Sans 3", "Noto Sans SC", sans-serif;
+  --font-body: "Source Sans 3", "Noto Sans SC", sans-serif;
+  --color-bg: 245 246 248;
+  --color-surface: 255 255 255;
+  --color-text: 22 24 29;
+  --color-primary: 41 98 255;
+  --color-accent: 12 196 155;
+  --color-border: 212 217 226;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+  --shadow-theme: 0 10px 30px rgba(21, 28, 47, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+}
+
+.theme-neutral {
+  --font-heading: "Source Sans 3", "Noto Sans SC", sans-serif;
+  --font-body: "Source Sans 3", "Noto Sans SC", sans-serif;
+  --color-bg: 244 247 251;
+  --color-surface: 255 255 255;
+  --color-text: 20 26 33;
+  --color-primary: 66 93 222;
+  --color-accent: 36 180 139;
+  --color-border: 210 218 231;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+  --shadow-theme: 0 8px 24px rgba(24, 34, 58, 0.1);
+}
+
+.theme-nt {
+  --font-heading: "IBM Plex Mono", "Fira Code", Consolas, monospace;
+  --font-body: "IBM Plex Mono", "Fira Code", Consolas, monospace;
+  --color-bg: 10 14 22;
+  --color-surface: 16 23 36;
+  --color-text: 229 245 255;
+  --color-primary: 0 255 209;
+  --color-accent: 94 255 74;
+  --color-border: 48 68 101;
+  --radius-card: 6px;
+  --radius-pill: 8px;
+  --shadow-theme: 0 0 0 1px rgba(0, 255, 209, 0.4), 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.theme-nf {
+  --font-heading: "Caveat", "STKaiti", cursive;
+  --font-body: "Nunito", "PingFang SC", sans-serif;
+  --color-bg: 245 236 236;
+  --color-surface: 255 247 248;
+  --color-text: 77 70 89;
+  --color-primary: 221 128 160;
+  --color-accent: 147 181 228;
+  --color-border: 228 202 211;
+  --radius-card: 28px;
+  --radius-pill: 999px;
+  --shadow-theme: 0 12px 26px rgba(196, 166, 184, 0.25);
+}
+
+.theme-sj {
+  --font-heading: "Cormorant Garamond", "Noto Serif SC", serif;
+  --font-body: "Noto Serif SC", "Times New Roman", serif;
+  --color-bg: 242 233 210;
+  --color-surface: 250 245 230;
+  --color-text: 63 56 39;
+  --color-primary: 62 95 74;
+  --color-accent: 136 84 45;
+  --color-border: 187 168 130;
+  --radius-card: 10px;
+  --radius-pill: 14px;
+  --shadow-theme: 0 8px 18px rgba(116, 98, 66, 0.2);
+}
+
+.theme-sp {
+  --font-heading: "Bebas Neue", "Impact", sans-serif;
+  --font-body: "Archivo", "Noto Sans SC", sans-serif;
+  --color-bg: 252 233 63;
+  --color-surface: 255 243 140;
+  --color-text: 17 17 17;
+  --color-primary: 255 102 0;
+  --color-accent: 0 0 0;
+  --color-border: 20 20 20;
+  --radius-card: 16px;
+  --radius-pill: 14px;
+  --shadow-theme: 6px 6px 0 rgba(0, 0, 0, 0.9);
+}
+
