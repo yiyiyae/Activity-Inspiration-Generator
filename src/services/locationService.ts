@@ -7,6 +7,26 @@ export type LocationResult = {
   error?: string;
 };
 
+export type RecommendPayload = {
+  weather: "Sunny" | "Cloudy" | "Rainy";
+  time: "Morning" | "Afternoon" | "Evening";
+  moodIntent: string;
+  partyMode: string;
+  energyLevel: "low" | "medium" | "high";
+  socialIntensity?: "low" | "medium" | "high";
+  budgetLevel?: string;
+  recentIds?: string[];
+  limit?: number;
+};
+
+export type RecommendResult = {
+  id: string;
+  title: string;
+  score: number;
+  explain: string[];
+  location: LocationItem;
+};
+
 const CACHE_KEY = "weekend_prescription_locations_cache_v1";
 const CACHE_TTL_MS = 1000 * 60 * 10;
 
@@ -46,6 +66,10 @@ function writeLocalCache(payload: CachePayload) {
 
 function getEndpoint() {
   return import.meta.env.DEV ? "/__api/locations" : "/api/locations";
+}
+
+function getRecommendEndpoint() {
+  return import.meta.env.DEV ? "/__api/recommend" : "/api/recommend";
 }
 
 export function getCachedLocations(): LocationResult | null {
@@ -110,4 +134,26 @@ export async function getLocations(): Promise<LocationResult> {
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+export async function getRecommendation(payload: RecommendPayload): Promise<RecommendResult[]> {
+  const response = await fetch(getRecommendEndpoint(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let detail = `Recommendation failed with status ${response.status}`;
+    try {
+      const body = (await response.json()) as { message?: string; reason?: string };
+      detail = body.reason || body.message || detail;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(detail);
+  }
+
+  const body = (await response.json()) as { results?: RecommendResult[] };
+  return Array.isArray(body.results) ? body.results : [];
 }

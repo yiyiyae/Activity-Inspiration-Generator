@@ -24,6 +24,20 @@ type LocationItem = {
   };
 };
 
+export type NotionLocationItem = LocationItem & {
+  locationTypes: string[];
+  activityVerbs: string[];
+  partyModes: string[];
+  budgetLevel: string;
+  energyLevels: string[];
+  socialIntensity: string;
+  moodIntents: string[];
+  contentTags: string[];
+  prescriptionTones: string[];
+  generationRole: string;
+  crowdLevel: string;
+};
+
 type GenericPage = {
   id: string;
   properties: Record<string, any>;
@@ -88,6 +102,11 @@ function getMultiSelect(properties: Record<string, any>, keys: string[]): string
   return prop.multi_select.map((item: any) => item.name).filter(Boolean);
 }
 
+function getSelect(properties: Record<string, any>, keys: string[]): string {
+  const prop = pickProperty(properties, keys);
+  return prop?.select?.name ?? "";
+}
+
 function getListFromText(input: string): string[] {
   if (!input) return [];
   return input
@@ -106,7 +125,7 @@ function normalizeTime(items: string[]): TimeType[] {
   return Array.from(new Set(mapped));
 }
 
-function mapPageToLocation(page: GenericPage): LocationItem {
+function mapPageToLocation(page: GenericPage): NotionLocationItem {
   const props = page.properties ?? {};
 
   const timelineText = getRichText(props, ["J_Timeline", "J Timeline", "j_timeline", "timeline"]);
@@ -133,6 +152,17 @@ function mapPageToLocation(page: GenericPage): LocationItem {
       checklist: getListFromText(checklistText),
       warning: getRichText(props, ["J_Warning", "J Warning", "j_warning", "warning"]),
     },
+    locationTypes: getMultiSelect(props, ["Location Type"]),
+    activityVerbs: getMultiSelect(props, ["Activity Verb"]),
+    partyModes: getMultiSelect(props, ["Party Mode"]),
+    budgetLevel: getSelect(props, ["Budget Level"]),
+    energyLevels: getMultiSelect(props, ["Energy Level"]),
+    socialIntensity: getSelect(props, ["Social Intensity"]),
+    moodIntents: getMultiSelect(props, ["Mood Intent"]),
+    contentTags: getMultiSelect(props, ["Content Tags"]),
+    prescriptionTones: getMultiSelect(props, ["Prescription Tone"]),
+    generationRole: getSelect(props, ["Generation Role"]),
+    crowdLevel: getSelect(props, ["Crowd Level"]),
   };
 }
 

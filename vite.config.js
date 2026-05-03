@@ -4,6 +4,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { Client } from "@notionhq/client";
 import { queryMappedLocations, queryRawPages } from "./api/_lib/notionLocations";
+import { recommendLocations } from "./api/_lib/recommendation";
+import { getFunnelMetrics, getOverviewMetrics, trackAnalyticsEvent } from "./api/_lib/analyticsStore";
+import { isAdminAnalyticsAuthorized } from "./api/_lib/adminAuth";
 function devApiPlugin() {
     return {
         name: "dev-api-middleware",
@@ -99,6 +102,154 @@ function devApiPlugin() {
                         res.statusCode = 500;
                         res.setHeader("Content-Type", "application/json; charset=utf-8");
                         res.end(JSON.stringify({ message: "Failed to query Notion database", reason }));
+                        return;
+                    }
+                }
+                if (url === "/__api/recommend") {
+                    if (req.method !== "POST") {
+                        res.statusCode = 405;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Method not allowed" }));
+                        return;
+                    }
+                    try {
+                        let raw = "";
+                        for await (const chunk of req) {
+                            raw += chunk.toString();
+                        }
+                        const body = raw ? JSON.parse(raw) : {};
+                        if (!body.weather || !body.time || !body.moodIntent || !body.partyMode || !body.energyLevel) {
+                            res.statusCode = 400;
+                            res.setHeader("Content-Type", "application/json; charset=utf-8");
+                            res.end(JSON.stringify({ message: "Missing required fields" }));
+                            return;
+                        }
+                        const rows = await queryMappedLocations();
+                        const scored = recommendLocations(rows, body, body.limit ?? 3);
+                        res.statusCode = 200;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({
+                            totalCandidates: rows.length,
+                            matchedCandidates: scored.length,
+                            results: scored.map((x) => ({
+                                id: x.item.id,
+                                title: x.item.title,
+                                score: Number(x.score.toFixed(2)),
+                                explain: x.explain,
+                                location: x.item,
+                            })),
+                        }));
+                        return;
+                    }
+                    catch (error) {
+                        console.error("[dev-api] /__api/recommend failed", error);
+                        const reason = error instanceof Error ? error.message : "Unknown error";
+                        res.statusCode = 500;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Failed to generate recommendation", reason }));
+                        return;
+                    }
+                }
+                if (url === "/__api/analytics/track") {
+                    if (req.method !== "POST") {
+                        res.statusCode = 405;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Method not allowed" }));
+                        return;
+                    }
+                    try {
+                        let raw = "";
+                        for await (const chunk of req) {
+                            raw += chunk.toString();
+                        }
+                        const body = raw ? JSON.parse(raw) : {};
+                        const result = await trackAnalyticsEvent(body);
+                        if (!result.ok) {
+                            const message = "message" in result ? result.message : "Bad request";
+                            res.statusCode = result.status;
+                            res.setHeader("Content-Type", "application/json; charset=utf-8");
+                            res.end(JSON.stringify({ message }));
+                            return;
+                        }
+                        res.statusCode = result.status;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ ok: true, deduplicated: result.deduplicated }));
+                        return;
+                    }
+                    catch (error) {
+                        console.error("[dev-api] /__api/analytics/track failed", error);
+                        const reason = error instanceof Error ? error.message : "Unknown error";
+                        res.statusCode = 500;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Failed to track analytics event", reason }));
+                        return;
+                    }
+                }
+                if (url === "/__api/analytics/overview") {
+                    if (req.method !== "GET") {
+                        res.statusCode = 405;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Method not allowed" }));
+                        return;
+                    }
+                    if (!isAdminAnalyticsAuthorized(req)) {
+                        res.statusCode = 401;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Unauthorized" }));
+                        return;
+                    }
+                    try {
+                        const requestUrl = new URL(req.url ?? "", "http://localhost");
+                        const from = requestUrl.searchParams.get("from") ?? undefined;
+                        const to = requestUrl.searchParams.get("to") ?? undefined;
+                        const rawMode = requestUrl.searchParams.get("mode");
+                        const mode = rawMode === "P" || rawMode === "J" ? rawMode : "ALL";
+                        const data = await getOverviewMetrics({ from, to, mode });
+                        res.statusCode = 200;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify(data));
+                        return;
+                    }
+                    catch (error) {
+                        console.error("[dev-api] /__api/analytics/overview failed", error);
+                        const reason = error instanceof Error ? error.message : "Unknown error";
+                        res.statusCode = 500;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Failed to query overview metrics", reason }));
+                        return;
+                    }
+                }
+                if (url === "/__api/analytics/funnel") {
+                    if (req.method !== "GET") {
+                        res.statusCode = 405;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Method not allowed" }));
+                        return;
+                    }
+                    if (!isAdminAnalyticsAuthorized(req)) {
+                        res.statusCode = 401;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Unauthorized" }));
+                        return;
+                    }
+                    try {
+                        const requestUrl = new URL(req.url ?? "", "http://localhost");
+                        const from = requestUrl.searchParams.get("from") ?? undefined;
+                        const to = requestUrl.searchParams.get("to") ?? undefined;
+                        const rawMode = requestUrl.searchParams.get("mode");
+                        const mode = rawMode === "P" || rawMode === "J" ? rawMode : "ALL";
+                        const data = await getFunnelMetrics({ from, to, mode });
+                        res.statusCode = 200;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify(data));
+                        return;
+                    }
+                    catch (error) {
+                        console.error("[dev-api] /__api/analytics/funnel failed", error);
+                        const reason = error instanceof Error ? error.message : "Unknown error";
+                        res.statusCode = 500;
+                        res.setHeader("Content-Type", "application/json; charset=utf-8");
+                        res.end(JSON.stringify({ message: "Failed to query funnel metrics", reason }));
                         return;
                     }
                 }

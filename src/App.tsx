@@ -3,10 +3,16 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import InteractionPage from "./pages/InteractionPage";
 import ResultCardPage from "./pages/ResultCardPage";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import { useTheme } from "./context/ThemeContext";
 
 function App() {
   const { currentStep } = useTheme();
+  const pathname = typeof window === "undefined" ? "/" : window.location.pathname;
+
+  if (pathname.startsWith("/admin/analytics")) {
+    return <AdminAnalyticsPage />;
+  }
 
   if (currentStep === "mode-select") {
     return <ModeSelectPage />;

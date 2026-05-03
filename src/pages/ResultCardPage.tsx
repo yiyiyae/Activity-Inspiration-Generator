@@ -3,9 +3,64 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Camera, CheckSquare, Link2, RotateCcw, Sparkles, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { generateDynamicTimeline, type DynamicTimelineItem } from "../utils/timeCalculator";
+import { trackEvent } from "../services/analytics";
+
+function roundToFive(minutes: number): number {
+  return Math.round(minutes / 5) * 5;
+}
+
+function formatHHmm(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function resolveDepartureBaseTime(
+  userIntent: ReturnType<typeof useTheme>["userIntent"]
+): { baseTimeHHmm: string | null; summaryText: string } {
+  if (!userIntent) {
+    return { baseTimeHHmm: null, summaryText: "未设置，按推荐时段估算" };
+  }
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  if (userIntent.departurePreset === "custom" && userIntent.customDepartureTime) {
+    return { baseTimeHHmm: userIntent.customDepartureTime, summaryText: `已设定出发时间：${userIntent.customDepartureTime}` };
+  }
+
+  if (userIntent.departurePreset === "plus30") {
+    return {
+      baseTimeHHmm: formatHHmm(roundToFive(nowMinutes + 30)),
+      summaryText: "按 30 分钟后出发估算",
+    };
+  }
+
+  if (userIntent.departurePreset === "plus60") {
+    return {
+      baseTimeHHmm: formatHHmm(roundToFive(nowMinutes + 60)),
+      summaryText: "按 1 小时后出发估算",
+    };
+  }
+
+  if (userIntent.departurePreset === "tonight") {
+    const tonight = nowMinutes <= 19 * 60 ? 19 * 60 : roundToFive(nowMinutes + 30);
+    return {
+      baseTimeHHmm: formatHHmm(tonight),
+      summaryText: "按今晚出发估算",
+    };
+  }
+
+  return {
+    baseTimeHHmm: formatHHmm(roundToFive(nowMinutes)),
+    summaryText: "按现在出发估算",
+  };
+}
 
 function ResultCardPage() {
-  const { mode, resultLocation, restartDiagnosis, goToStep, selectedTimeLabel } = useTheme();
+  const { mode, resultLocation, restartDiagnosis, goToStep, selectedTimeLabel, recommendationExplain, setMode, userIntent } =
+    useTheme();
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
 
@@ -14,6 +69,16 @@ function ResultCardPage() {
       goToStep("mode-select");
     }
   }, [goToStep, mode, resultLocation]);
+
+  useEffect(() => {
+    if (!resultLocation || !mode) return;
+    trackEvent("presentation", "result_impression", {
+      mode,
+      locationId: resultLocation.id,
+      locationTitle: resultLocation.title,
+      explainCount: recommendationExplain.length,
+    });
+  }, [mode, recommendationExplain.length, resultLocation]);
 
   useEffect(() => {
     if (!toastText) {
@@ -61,6 +126,8 @@ function ResultCardPage() {
     return "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&q=80&w=1200";
   }, [mode, resultLocation]);
 
+  const departurePlan = useMemo(() => resolveDepartureBaseTime(userIntent), [userIntent]);
+
   // J 模式：优先使用 j_activities / J_timeline 字符串 + selectedTime 动态推算时间轴。
   const computedJTimeline: DynamicTimelineItem[] = useMemo(() => {
     if (!resultLocation || mode !== "J") {
@@ -77,17 +144,23 @@ function ResultCardPage() {
       ?.trim();
 
     if (activitiesString) {
-      return generateDynamicTimeline(activitiesString, selectedTimeLabel ?? "下午");
+      return generateDynamicTimeline(activitiesString, selectedTimeLabel ?? "下午", {
+        baseTimeHHmm: departurePlan.baseTimeHHmm,
+        roundingStepMinutes: 5,
+      });
     }
 
     // 回退旧结构：若 timeline 本身是 "动作(时长)" 形式，也强制走新解析函数。
     const legacyRaw = resultLocation.j_mode.timeline.join(" | ").trim();
     if (legacyRaw) {
-      return generateDynamicTimeline(legacyRaw, selectedTimeLabel ?? "下午");
+      return generateDynamicTimeline(legacyRaw, selectedTimeLabel ?? "下午", {
+        baseTimeHHmm: departurePlan.baseTimeHHmm,
+        roundingStepMinutes: 5,
+      });
     }
 
     return [];
-  }, [mode, resultLocation, selectedTimeLabel]);
+  }, [departurePlan.baseTimeHHmm, mode, resultLocation, selectedTimeLabel]);
 
   if (!resultLocation || !mode) {
     return null;
@@ -102,7 +175,7 @@ function ResultCardPage() {
           <div className="relative overflow-hidden rounded-t-[calc(var(--radius-card)-1px)] border-b border-dashed border-skin-border bg-skin-bg px-5 pb-4 pt-5">
             <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-[0.14em] opacity-70">
               <span>周末处方药</span>
-              <span>{mode} MODE</span>
+              <span>{mode} 模式</span>
             </div>
             <h1 className="font-heading text-2xl leading-tight">你的专属出gai诊断已生成</h1>
             <p className="mt-2 text-sm opacity-75">由《周末处方药》开出，仅本周末有效。</p>
@@ -120,6 +193,18 @@ function ResultCardPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] opacity-70">本次处方地点</p>
                   <h2 className="mt-1 font-heading text-3xl leading-tight">{cardTitle}</h2>
+                  {recommendationExplain.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {recommendationExplain.map((reason) => (
+                        <span
+                          key={reason}
+                          className="rounded-pill border border-skin-border bg-skin-bg px-3 py-1 text-xs font-semibold"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {resultLocation.tags.map((tag) => (
                       <span
@@ -151,6 +236,18 @@ function ResultCardPage() {
               <article className="space-y-5">
                 <div>
                   <h2 className="font-heading text-3xl leading-tight">{cardTitle}</h2>
+                  {recommendationExplain.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {recommendationExplain.map((reason) => (
+                        <span
+                          key={reason}
+                          className="rounded-pill border border-skin-border bg-skin-bg px-3 py-1 text-xs font-semibold"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {resultLocation.tags.map((tag) => (
                       <span
@@ -164,7 +261,9 @@ function ResultCardPage() {
                 </div>
 
                 <section>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">Timeline</h3>
+                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">时间线</h3>
+                  <p className="mb-3 text-xs opacity-65">主时间为建议出发时段估算，副标注为出发后偏移。</p>
+                  <p className="mb-3 text-xs opacity-65">{departurePlan.summaryText}</p>
                   <ul className="space-y-4">
                     {computedJTimeline.map((item, index) => (
                       <li key={`${item.time}-${index}`} className="relative pl-7">
@@ -173,6 +272,7 @@ function ResultCardPage() {
                           <span className="absolute left-[4px] top-5 h-[calc(100%+0.45rem)] w-px bg-skin-border" />
                         ) : null}
                         <p className="text-xs font-semibold tracking-wide opacity-65">{item.time}</p>
+                        <p className="mt-0.5 text-[11px] opacity-60">{item.relativeOffsetLabel}</p>
                         <p className="mt-1 text-sm font-bold leading-relaxed">{item.action}</p>
                       </li>
                     ))}
@@ -180,7 +280,7 @@ function ResultCardPage() {
                 </section>
 
                 <section>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">Checklist</h3>
+                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">准备清单</h3>
                   <ul className="space-y-2">
                     {resultLocation.j_mode.checklist.map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm">
@@ -206,7 +306,29 @@ function ResultCardPage() {
         <div className="w-full space-y-3">
           <button
             type="button"
-            onClick={restartDiagnosis}
+            onClick={() => {
+              const nextMode = mode === "P" ? "J" : "P";
+              trackEvent("presentation", "mode_switched", {
+                fromMode: mode,
+                toMode: nextMode,
+                locationId: resultLocation.id,
+              });
+              setMode(nextMode);
+            }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-pill border border-skin-border bg-skin-surface px-4 py-3 font-semibold transition hover:-translate-y-0.5 hover:shadow-theme active:scale-[0.99]"
+          >
+            {mode === "P" ? "切换为 J 模式查看结构化计划" : "切换为 P 模式查看情绪处方"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              trackEvent("presentation", "restart_clicked", {
+                fromMode: mode,
+                locationId: resultLocation.id,
+              });
+              restartDiagnosis();
+            }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-pill border border-skin-border bg-skin-surface px-4 py-3 font-semibold transition hover:-translate-y-0.5 hover:shadow-theme active:scale-[0.99]"
           >
             <RotateCcw size={16} />
@@ -215,7 +337,13 @@ function ResultCardPage() {
 
           <button
             type="button"
-            onClick={() => setShowSaveModal(true)}
+            onClick={() => {
+              trackEvent("presentation", "save_modal_opened", {
+                mode,
+                locationId: resultLocation.id,
+              });
+              setShowSaveModal(true);
+            }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-pill bg-skin-primary px-4 py-3 font-semibold text-skin-bg transition hover:-translate-y-0.5 hover:shadow-theme active:scale-[0.99]"
           >
             <Camera size={16} />
@@ -265,7 +393,7 @@ function ResultCardPage() {
                         <li key={`${item.time}-${index}`} className="flex items-start gap-2">
                           <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900" />
                           <span>
-                            {item.time} · {item.action}
+                            {item.time}（{item.relativeOffsetLabel.replace("出发后 ", "")}）· {item.action}
                           </span>
                         </li>
                       ))}
@@ -296,18 +424,30 @@ function ResultCardPage() {
                       src={shareImageSrc}
                       alt="保存分享图"
                       className="h-36 w-full object-cover"
-                      onClick={() => setToastText("请长按图片，使用系统菜单保存到相册~")}
+                      onClick={() => {
+                        trackEvent("presentation", "save_image_tip_clicked", {
+                          mode,
+                          locationId: resultLocation.id,
+                        });
+                        setToastText("请长按图片，使用系统菜单保存到相册~");
+                      }}
                     />
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setToastText("未来功能占位~")}
+                  onClick={() => {
+                    trackEvent("presentation", "share_link_clicked", {
+                      mode,
+                      locationId: resultLocation.id,
+                    });
+                    setToastText("未来功能占位~");
+                  }}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-pill border border-skin-border bg-skin-surface px-4 py-3 font-semibold transition hover:-translate-y-0.5 hover:shadow-theme active:scale-[0.99]"
                 >
                   <Link2 size={16} />
-                  🔗 生成分享链接（TODO）
+                  🔗 生成分享链接（开发中）
                 </button>
               </div>
             </article>

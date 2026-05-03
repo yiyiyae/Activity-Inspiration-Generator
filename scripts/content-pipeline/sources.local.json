@@ -1,0 +1,44 @@
+[
+  {
+    "id": "amap-weekend-poi",
+    "name": "高德POI-长沙周末灵感",
+    "type": "amap_poi",
+    "enabled": true,
+    "defaultCity": "changsha",
+    "city": "长沙",
+    "citylimit": true,
+    "keywords": [
+      "长沙 咖啡馆",
+      "长沙 展览",
+      "长沙 公园",
+      "长沙 书店",
+      "长沙 夜市"
+    ],
+    "types": "",
+    "pageSize": 15,
+    "maxPages": 1,
+    "sleepMs": 200,
+    "keyEnv": "AMAP_WEB_SERVICE_KEY",
+    "defaultTag": "高德POI",
+    "tags": ["长沙", "本地探索", "周末出行"]
+  },
+  {
+    "id": "changsha-culture-rss",
+    "name": "官方文旅RSS（待替换真实地址）",
+    "type": "rss",
+    "url": "https://example.com/changsha-culture.xml",
+    "enabled": false,
+    "defaultCity": "changsha",
+    "tags": ["官方文旅", "活动资讯"]
+  },
+  {
+    "id": "museum-events-rss",
+    "name": "博物馆展览RSS（待替换真实地址）",
+    "type": "rss",
+    "url": "https://example.com/museum-events.xml",
+    "enabled": false,
+    "defaultCity": "changsha",
+    "tags": ["展览", "博物馆", "艺术活动"]
+  }
+]
+

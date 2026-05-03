@@ -1,0 +1,30 @@
+[
+  {
+    "id": "changsha-tourism-rss",
+    "name": "长沙文旅RSS示例",
+    "type": "rss",
+    "url": "https://example.com/changsha-events.xml",
+    "enabled": false,
+    "defaultCity": "changsha",
+    "tags": ["长沙", "周末", "本地活动"]
+  },
+  {
+    "id": "community-events-json",
+    "name": "开源社区活动JSON示例",
+    "type": "github_json",
+    "url": "https://raw.githubusercontent.com/example/events/main/changsha.json",
+    "enabled": false,
+    "defaultCity": "changsha",
+    "tags": ["社区活动", "开源数据"],
+    "mapping": {
+      "id": "id",
+      "title": "title",
+      "description": "description",
+      "url": "url",
+      "image": "image",
+      "startAt": "start_time",
+      "endAt": "end_time"
+    }
+  }
+]
+

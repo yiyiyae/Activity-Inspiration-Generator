@@ -33,7 +33,7 @@ function OnboardingPage() {
             周末处方药
           </span>
           <h1 className="font-heading text-3xl leading-tight">长沙出gai灵感，新手村</h1>
-          <p className="text-sm opacity-80">先认领你的人格身份，点击 MBTI 后会直接进入情绪问诊台。</p>
+          <p className="text-sm opacity-80">先认领你的人格身份，再进入 3 题冷启动问诊。</p>
         </header>
 
         <section className="mt-5">

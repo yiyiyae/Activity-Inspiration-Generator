@@ -1,0 +1,25 @@
+{
+  "updatedAt": "2026-05-03T16:13:43.201Z",
+  "items": [
+    {
+      "term": "展览",
+      "dimension": "unknown",
+      "count": 30,
+      "firstSeenAt": "2026-05-03T16:11:46.277Z",
+      "lastSeenAt": "2026-05-03T16:13:43.201Z",
+      "reasons": [
+        "source_tag_not_in_vocab"
+      ],
+      "sampleNames": [
+        "长沙记忆文化展览馆",
+        "中国共产党长沙历史馆",
+        "湖南雨花非遗馆",
+        "湖南非遗中医药博览院",
+        "长沙梅溪湖国际文化艺术中心"
+      ],
+      "sampleSourceIds": [
+        "amap-weekend-poi"
+      ]
+    }
+  ]
+}
