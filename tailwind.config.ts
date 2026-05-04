@@ -24,6 +24,7 @@ const config: Config = {
         body: ["var(--font-body)"],
       },
       boxShadow: {
+        card: "var(--shadow-card)",
         theme: "var(--shadow-theme)",
       },
     },

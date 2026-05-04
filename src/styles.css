@@ -4,6 +4,7 @@
 @tailwind utilities;
 
 :root {
+  --font-brand-title: "Cormorant Garamond", "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
   --font-heading: "Source Sans 3", "Noto Sans SC", sans-serif;
   --font-body: "Source Sans 3", "Noto Sans SC", sans-serif;
   --color-bg: 245 246 248;
@@ -14,6 +15,7 @@
   --color-border: 212 217 226;
   --radius-card: 20px;
   --radius-pill: 999px;
+  --shadow-card: 0 6px 16px rgba(21, 28, 47, 0.08);
   --shadow-theme: 0 10px 30px rgba(21, 28, 47, 0.12);
 }
 
@@ -40,6 +42,65 @@ h3 {
   font-family: var(--font-heading);
 }
 
+.font-brand-title {
+  font-family: var(--font-brand-title);
+}
+
+.glass-card {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card-light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.42));
+  border-color: rgba(255, 255, 255, 0.52);
+}
+
+.glass-card-dark {
+  background: linear-gradient(135deg, rgba(54, 68, 98, 0.56), rgba(38, 50, 76, 0.44));
+  border-color: rgba(180, 205, 240, 0.28);
+}
+
+.card-soft-shadow {
+  box-shadow: 0 10px 26px rgba(34, 44, 69, 0.14);
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.4), transparent 34%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 44%);
+  pointer-events: none;
+}
+
+.metallic-text {
+  background: linear-gradient(95deg, #fcfcfd 0%, #d7d9e0 35%, #f4f5f8 65%, #b9bcc8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.mbti-wall-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(130, 138, 160, 0.4) transparent;
+}
+
+.mbti-wall-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.mbti-wall-scroll::-webkit-scrollbar-thumb {
+  background: rgba(130, 138, 160, 0.42);
+  border-radius: 999px;
+}
+
+
 .theme-neutral {
   --font-heading: "Source Sans 3", "Noto Sans SC", sans-serif;
   --font-body: "Source Sans 3", "Noto Sans SC", sans-serif;
@@ -51,21 +112,23 @@ h3 {
   --color-border: 210 218 231;
   --radius-card: 20px;
   --radius-pill: 999px;
+  --shadow-card: 0 6px 18px rgba(24, 34, 58, 0.09);
   --shadow-theme: 0 8px 24px rgba(24, 34, 58, 0.1);
 }
 
 .theme-nt {
   --font-heading: "IBM Plex Mono", "Fira Code", Consolas, monospace;
   --font-body: "IBM Plex Mono", "Fira Code", Consolas, monospace;
-  --color-bg: 10 14 22;
-  --color-surface: 16 23 36;
-  --color-text: 229 245 255;
-  --color-primary: 0 255 209;
-  --color-accent: 94 255 74;
-  --color-border: 48 68 101;
+  --color-bg: 18 24 38;
+  --color-surface: 30 38 56;
+  --color-text: 231 242 252;
+  --color-primary: 119 190 176;
+  --color-accent: 128 164 210;
+  --color-border: 78 98 132;
   --radius-card: 6px;
   --radius-pill: 8px;
-  --shadow-theme: 0 0 0 1px rgba(0, 255, 209, 0.4), 0 12px 28px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 0 0 1px rgba(140, 190, 218, 0.2), 0 12px 24px rgba(8, 14, 26, 0.34);
+  --shadow-theme: 0 0 0 1px rgba(148, 205, 235, 0.32), 0 14px 32px rgba(7, 12, 24, 0.4);
 }
 
 .theme-nf {
@@ -79,6 +142,7 @@ h3 {
   --color-border: 228 202 211;
   --radius-card: 28px;
   --radius-pill: 999px;
+  --shadow-card: 0 8px 18px rgba(196, 166, 184, 0.2);
   --shadow-theme: 0 12px 26px rgba(196, 166, 184, 0.25);
 }
 
@@ -93,20 +157,36 @@ h3 {
   --color-border: 187 168 130;
   --radius-card: 10px;
   --radius-pill: 14px;
+  --shadow-card: 0 6px 14px rgba(116, 98, 66, 0.16);
   --shadow-theme: 0 8px 18px rgba(116, 98, 66, 0.2);
 }
 
 .theme-sp {
   --font-heading: "Bebas Neue", "Impact", sans-serif;
   --font-body: "Archivo", "Noto Sans SC", sans-serif;
-  --color-bg: 252 233 63;
-  --color-surface: 255 243 140;
-  --color-text: 17 17 17;
-  --color-primary: 255 102 0;
-  --color-accent: 0 0 0;
-  --color-border: 20 20 20;
+  --color-bg: 249 234 196;
+  --color-surface: 252 241 216;
+  --color-text: 65 48 33;
+  --color-primary: 224 135 72;
+  --color-accent: 152 102 63;
+  --color-border: 187 149 112;
   --radius-card: 16px;
   --radius-pill: 14px;
-  --shadow-theme: 6px 6px 0 rgba(0, 0, 0, 0.9);
+  --shadow-card: 0 8px 18px rgba(214, 151, 99, 0.22);
+  --shadow-theme: 0 12px 26px rgba(206, 141, 88, 0.26);
+}
+
+.theme-nt body {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(136, 177, 232, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 16%, rgba(171, 144, 214, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0));
+}
+
+.theme-nt .glass-card {
+  background: linear-gradient(135deg, rgba(63, 78, 112, 0.52), rgba(42, 55, 83, 0.44));
+  border-color: rgba(163, 194, 228, 0.22);
+  backdrop-filter: blur(13px);
+  -webkit-backdrop-filter: blur(13px);
 }
 

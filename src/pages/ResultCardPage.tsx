@@ -1,9 +1,11 @@
 ﻿// Page 4 结果卡：根据 P/J 渲染不同内容，并提供保存弹窗与重诊断。
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Camera, CheckSquare, Link2, RotateCcw, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { AlertTriangle, Camera, CheckSquare, Link2, RefreshCw, RotateCcw, Sparkles, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { generateDynamicTimeline, type DynamicTimelineItem } from "../utils/timeCalculator";
 import { trackEvent } from "../services/analytics";
+import { getRecommendation } from "../services/locationService";
+import { getRuntimeContext, type TimeOption } from "../services/runtimeContext";
 
 function roundToFive(minutes: number): number {
   return Math.round(minutes / 5) * 5;
@@ -58,11 +60,36 @@ function resolveDepartureBaseTime(
   };
 }
 
+function toSocialIntensity(mode: "独处" | "双人" | "朋友" | "UNKNOWN"): "low" | "medium" | "high" {
+  if (mode === "独处") return "low";
+  if (mode === "双人" || mode === "UNKNOWN") return "medium";
+  return "high";
+}
+
+function toChineseTimeLabel(time: TimeOption): "上午" | "下午" | "晚上" {
+  if (time === "Morning") return "上午";
+  if (time === "Afternoon") return "下午";
+  return "晚上";
+}
+
 function ResultCardPage() {
-  const { mode, resultLocation, restartDiagnosis, goToStep, selectedTimeLabel, recommendationExplain, setMode, userIntent } =
-    useTheme();
+  const {
+    mode,
+    resultLocation,
+    restartDiagnosis,
+    goToStep,
+    selectedTimeLabel,
+    recommendationExplain,
+    setMode,
+    setResultLocation,
+    userIntent,
+  } = useTheme();
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
+  const [refreshingType, setRefreshingType] = useState<"single" | "batch" | null>(null);
+  const [recentRecommendationIds, setRecentRecommendationIds] = useState<string[]>([]);
+  const [cardDragX, setCardDragX] = useState(0);
+  const dragStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!resultLocation || !mode) {
@@ -90,6 +117,14 @@ function ResultCardPage() {
 
     return () => window.clearTimeout(timer);
   }, [toastText]);
+
+  useEffect(() => {
+    if (!resultLocation?.id) return;
+    setRecentRecommendationIds((previous) => {
+      if (previous[previous.length - 1] === resultLocation.id) return previous;
+      return [...previous, resultLocation.id].slice(-16);
+    });
+  }, [resultLocation?.id]);
 
   const cardTitle = useMemo(() => {
     if (!resultLocation) {
@@ -127,6 +162,94 @@ function ResultCardPage() {
   }, [mode, resultLocation]);
 
   const departurePlan = useMemo(() => resolveDepartureBaseTime(userIntent), [userIntent]);
+
+  const handleRefillRecommendation = async (strategy: "single" | "batch" | "swipe") => {
+    if (!resultLocation || !userIntent || !mode) return;
+
+    const useBatchStrategy = strategy === "batch";
+    const recentIds = useBatchStrategy ? recentRecommendationIds : [resultLocation.id];
+    setRefreshingType(useBatchStrategy ? "batch" : "single");
+
+    trackEvent("recommendation", "replacement_requested", {
+      strategy,
+      mode,
+      currentId: resultLocation.id,
+      recentIdsCount: recentIds.length,
+    });
+
+    try {
+      const context = await getRuntimeContext();
+      const results = await getRecommendation({
+        weather: context.weather,
+        time: context.time,
+        moodIntent: userIntent.moodIntent,
+        partyMode: userIntent.partyMode,
+        energyLevel: userIntent.energyLevel,
+        socialIntensity: toSocialIntensity(userIntent.partyMode),
+        recentIds,
+        limit: useBatchStrategy ? 8 : 5,
+      });
+
+      const next =
+        results.find((item) => item.id !== resultLocation.id && !recentRecommendationIds.includes(item.id)) ??
+        results.find((item) => item.id !== resultLocation.id) ??
+        null;
+
+      if (!next) {
+        setToastText("同条件下暂时没有更多平替地点，试试重选症状。");
+        trackEvent("recommendation", "replacement_empty", {
+          strategy,
+          mode,
+          currentId: resultLocation.id,
+        });
+        return;
+      }
+
+      setResultLocation(next.location, toChineseTimeLabel(context.time), next.explain);
+      setToastText(strategy === "swipe" ? "已为你换一味药" : "已刷新为同条件平替");
+      trackEvent("recommendation", "replacement_received", {
+        strategy,
+        mode,
+        previousId: resultLocation.id,
+        nextId: next.id,
+        nextScore: next.score,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "平替刷新失败，请稍后重试";
+      setToastText(message);
+      trackEvent("recommendation", "replacement_failed", {
+        strategy,
+        mode,
+        currentId: resultLocation.id,
+        reason: message,
+      });
+    } finally {
+      setRefreshingType(null);
+      setCardDragX(0);
+    }
+  };
+
+  const onCardPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (refreshingType) return;
+    dragStartXRef.current = event.clientX;
+  };
+
+  const onCardPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    if (dragStartXRef.current === null || refreshingType) return;
+    const delta = event.clientX - dragStartXRef.current;
+    setCardDragX(Math.max(-120, Math.min(20, delta)));
+  };
+
+  const onCardPointerUp = async (event: ReactPointerEvent<HTMLElement>) => {
+    if (dragStartXRef.current === null || refreshingType) return;
+    const delta = event.clientX - dragStartXRef.current;
+    dragStartXRef.current = null;
+    if (delta < -90) {
+      await handleRefillRecommendation("swipe");
+      return;
+    }
+    setCardDragX(0);
+  };
 
   // J 模式：优先使用 j_activities / J_timeline 字符串 + selectedTime 动态推算时间轴。
   const computedJTimeline: DynamicTimelineItem[] = useMemo(() => {
@@ -171,14 +294,31 @@ function ResultCardPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(255,255,255,0.2),transparent_35%),radial-gradient(circle_at_90%_10%,rgba(0,0,0,0.18),transparent_28%)]" />
 
       <div className="relative mx-auto flex w-full max-w-md flex-col items-center gap-5">
-        <section className="w-full rounded-card border border-skin-border bg-skin-surface shadow-theme backdrop-blur-sm">
+        <section
+          className="w-full rounded-card border border-skin-border bg-skin-surface shadow-theme backdrop-blur-sm"
+          onPointerDown={onCardPointerDown}
+          onPointerMove={onCardPointerMove}
+          onPointerUp={onCardPointerUp}
+          onPointerCancel={() => {
+            dragStartXRef.current = null;
+            setCardDragX(0);
+          }}
+          style={{ transform: `translateX(${cardDragX}px)`, transition: refreshingType ? "transform 200ms ease" : "transform 120ms ease" }}
+        >
           <div className="relative overflow-hidden rounded-t-[calc(var(--radius-card)-1px)] border-b border-dashed border-skin-border bg-skin-bg px-5 pb-4 pt-5">
             <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-[0.14em] opacity-70">
               <span>周末处方药</span>
-              <span>{mode} 模式</span>
+              <span
+                className={`rounded-pill border px-2 py-1 text-[10px] font-semibold ${
+                  mode === "P" ? "border-fuchsia-300/80 bg-fuchsia-100/70 text-fuchsia-900" : "border-sky-300/80 bg-sky-100/70 text-sky-900"
+                }`}
+              >
+                {mode} 模式
+              </span>
             </div>
-            <h1 className="font-heading text-2xl leading-tight">你的专属出gai诊断已生成</h1>
+            <h1 className="font-brand-title text-2xl leading-tight">你的专属出gai诊断已生成</h1>
             <p className="mt-2 text-sm opacity-75">由《周末处方药》开出，仅本周末有效。</p>
+            <p className="mt-1 text-xs opacity-65">不满意可左滑药方，快速换一味药（不改你本轮条件）。</p>
 
             <div className="pointer-events-none absolute -bottom-3 left-0 flex w-full justify-between px-3">
               {Array.from({ length: 14 }).map((_, idx) => (
@@ -192,7 +332,18 @@ function ResultCardPage() {
               <article className="space-y-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] opacity-70">本次处方地点</p>
-                  <h2 className="mt-1 font-heading text-3xl leading-tight">{cardTitle}</h2>
+                  <div className="mt-1 flex items-start justify-between gap-3">
+                    <h2 className="font-brand-title text-3xl leading-tight">{cardTitle}</h2>
+                    <button
+                      type="button"
+                      onClick={() => void handleRefillRecommendation("single")}
+                      disabled={refreshingType !== null}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-skin-border bg-skin-bg px-2.5 py-1 text-[11px] font-semibold transition hover:-translate-y-0.5 disabled:opacity-60"
+                    >
+                      <RefreshCw size={12} />
+                      {refreshingType ? "换药中" : "换一味药"}
+                    </button>
+                  </div>
                   {recommendationExplain.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {recommendationExplain.map((reason) => (
@@ -222,7 +373,10 @@ function ResultCardPage() {
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent" />
                 </div>
 
-                <p className="font-heading text-3xl leading-tight">{normalizedPHookText}</p>
+                <section className="rounded-card border border-fuchsia-200/80 bg-fuchsia-50/60 p-4">
+                  <p className="mb-2 text-xs uppercase tracking-[0.14em] text-fuchsia-900/70">P 人多巴胺</p>
+                  <p className="font-brand-title text-3xl leading-tight">{normalizedPHookText}</p>
+                </section>
 
                 <div className="rounded-card border-2 border-skin-accent bg-skin-bg p-4 shadow-theme">
                   <p className="mb-2 inline-flex items-center gap-2 text-xs uppercase tracking-[0.14em] opacity-80">
@@ -235,7 +389,18 @@ function ResultCardPage() {
             ) : (
               <article className="space-y-5">
                 <div>
-                  <h2 className="font-heading text-3xl leading-tight">{cardTitle}</h2>
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-brand-title text-3xl leading-tight">{cardTitle}</h2>
+                    <button
+                      type="button"
+                      onClick={() => void handleRefillRecommendation("single")}
+                      disabled={refreshingType !== null}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-skin-border bg-skin-bg px-2.5 py-1 text-[11px] font-semibold transition hover:-translate-y-0.5 disabled:opacity-60"
+                    >
+                      <RefreshCw size={12} />
+                      {refreshingType ? "换药中" : "换一味药"}
+                    </button>
+                  </div>
                   {recommendationExplain.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {recommendationExplain.map((reason) => (
@@ -260,8 +425,11 @@ function ResultCardPage() {
                   </div>
                 </div>
 
-                <section>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">时间线</h3>
+                <section className="rounded-card border border-sky-200/80 bg-sky-50/55 p-4">
+                  <h3 className="mb-2 inline-flex items-center gap-2 text-sm uppercase tracking-[0.14em] text-sky-900/70">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-300 text-[10px]">⏱</span>
+                    时间线
+                  </h3>
                   <p className="mb-3 text-xs opacity-65">主时间为建议出发时段估算，副标注为出发后偏移。</p>
                   <p className="mb-3 text-xs opacity-65">{departurePlan.summaryText}</p>
                   <ul className="space-y-4">
@@ -273,14 +441,17 @@ function ResultCardPage() {
                         ) : null}
                         <p className="text-xs font-semibold tracking-wide opacity-65">{item.time}</p>
                         <p className="mt-0.5 text-[11px] opacity-60">{item.relativeOffsetLabel}</p>
-                        <p className="mt-1 text-sm font-bold leading-relaxed">{item.action}</p>
+                        <p className="mt-1 text-sm font-semibold leading-relaxed">{item.action}</p>
                       </li>
                     ))}
                   </ul>
                 </section>
 
-                <section>
-                  <h3 className="mb-3 text-sm uppercase tracking-[0.14em] opacity-70">准备清单</h3>
+                <section className="rounded-card border border-zinc-300/80 bg-zinc-50/70 p-4">
+                  <h3 className="mb-3 inline-flex items-center gap-2 text-sm uppercase tracking-[0.14em] opacity-70">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-400 text-[10px]">📋</span>
+                    准备清单
+                  </h3>
                   <ul className="space-y-2">
                     {resultLocation.j_mode.checklist.map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm">
@@ -291,7 +462,7 @@ function ResultCardPage() {
                   </ul>
                 </section>
 
-                <section className="rounded-card border border-amber-500/60 bg-amber-100/70 p-3 text-amber-900">
+                <section className="rounded-card border border-rose-500/60 bg-rose-100/70 p-3 text-rose-900">
                   <p className="mb-1 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em]">
                     <AlertTriangle size={14} />
                     避坑提醒
@@ -332,7 +503,7 @@ function ResultCardPage() {
             className="inline-flex w-full items-center justify-center gap-2 rounded-pill border border-skin-border bg-skin-surface px-4 py-3 font-semibold transition hover:-translate-y-0.5 hover:shadow-theme active:scale-[0.99]"
           >
             <RotateCcw size={16} />
-            💊 重新诊断
+            重选症状（重开整套问诊）
           </button>
 
           <button
